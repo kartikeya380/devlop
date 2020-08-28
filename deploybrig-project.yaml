@@ -1,0 +1,10 @@
+project: "Devlop"
+repository: "github.com/kartikeya380/devlop.git"
+cloneURL: "https://github.com/kartikeya380/devlop.git"
+sharedSecret: "jsjsjsjsjsjsjsjsjsjs"
+github:
+  token: "cb170b1b13c4571ce4ec02811c8e92922ee00de0"
+
+secrets:
+  dockerPass: Abcd@1234
+  dockerLogin: kartikeya390
