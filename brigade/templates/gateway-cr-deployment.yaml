@@ -1,0 +1,59 @@
+{{ if .Values.cr.enabled }}
+{{ $fullname := include "brigade.cr.fullname" . }}
+{{ $serviceAccount := default $fullname .Values.cr.serviceAccount.name }}
+apiVersion: {{ template "deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ $fullname }}
+  labels:
+    app.kubernetes.io/name: {{ template "brigade.fullname" . }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    app.kubernetes.io/instance: "{{ .Release.Name }}"
+    app.kubernetes.io/managed-by: "{{ .Release.Service }}"
+    role: gateway
+    type: dockerhub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "brigade.fullname" . }}
+      app: {{ template "brigade.fullname" . }}
+      role: gateway
+      type: dockerhub
+  template:
+    metadata:
+    {{- if .Values.cr.podAnnotations }}
+      annotations:
+{{ toYaml .Values.cr.podAnnotations | indent 8}}
+    {{- end }}
+      labels:
+        app.kubernetes.io/name: {{ template "brigade.fullname" . }}
+        app: {{ template "brigade.fullname" . }}
+        role: gateway
+        type: dockerhub
+    spec:
+      serviceAccountName: {{ $serviceAccount }}
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.cr.registry }}/{{ .Values.cr.name }}:{{ default .Chart.AppVersion .Values.cr.tag }}"
+        imagePullPolicy: {{ default "IfNotPresent" .Values.cr.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.cr.service.internalPort }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ .Values.cr.service.internalPort }}
+{{ if .Values.cr.livenessProbe }}{{ toYaml .Values.cr.livenessProbe | indent 10 }}{{ end }}
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ .Values.cr.service.internalPort }}
+{{ if .Values.cr.readinessProbe }}{{ toYaml .Values.cr.readinessProbe | indent 10 }}{{ end }}
+        env:
+          - name: BRIGADE_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+      {{ if .Values.privateRegistry }}imagePullSecrets:
+        - name: {{.Values.privateRegistry}}{{ end }}
+{{ end }}

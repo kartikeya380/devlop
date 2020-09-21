@@ -1,0 +1,58 @@
+{{ if .Values.api.enabled }}
+{{ $fullname := include "brigade.api.fullname" . }}
+{{ $serviceAccount := default $fullname .Values.api.serviceAccount.name }}
+apiVersion: {{ template "deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ template "brigade.fullname" . }}-api
+  labels:
+    app.kubernetes.io/name: {{ template "brigade.fullname" . }}-api
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    app.kubernetes.io/instance: "{{ .Release.Name }}"
+    app.kubernetes.io/managed-by: "{{ .Release.Service }}"
+    role: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "brigade.fullname" . }}-api
+      app: {{ template "brigade.fullname" . }}-api
+      role: api
+  template:
+    metadata:
+    {{- if .Values.api.podAnnotations }}
+      annotations:
+{{ toYaml .Values.api.podAnnotations | indent 8}}
+    {{- end }}
+      labels:
+        app.kubernetes.io/name: {{ template "brigade.fullname" . }}-api
+        app: {{ template "brigade.fullname" . }}-api
+        role: api
+    spec:
+      serviceAccountName: {{ $serviceAccount }}
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.api.registry }}/{{ .Values.api.name }}:{{ default .Chart.AppVersion .Values.api.tag }}"
+        imagePullPolicy: {{ default "IfNotPresent" .Values.api.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.api.service.internalPort }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ .Values.api.service.internalPort }}
+{{ if .Values.api.livenessProbe }}{{ toYaml .Values.api.livenessProbe | indent 10 }}{{ end }}
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ .Values.api.service.internalPort }}
+{{ if .Values.api.readinessProbe }}{{ toYaml .Values.api.readinessProbe | indent 10 }}{{ end }}
+        env:
+          - name: BRIGADE_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: BRIGADE_API_PORT
+            value: {{ .Values.api.service.internalPort | quote }}
+      {{ if .Values.privateRegistry }}imagePullSecrets:
+        - name: {{.Values.privateRegistry}}{{ end }}
+{{ end }}
