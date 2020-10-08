@@ -1,0 +1,59 @@
+apiVersion: {{ template "deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    app: {{ template "name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+        app: {{ template "name" . }}
+        release: {{ .Release.Name }}
+  template:
+    metadata:
+      annotations:
+        checksum/config-js: {{ include (print $.Template.BasePath "/js-configmap.yaml") . | sha256sum }}
+        checksum/config-nginx: {{ include (print $.Template.BasePath "/nginx-configmap.yaml") . | sha256sum }}
+    {{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8}}
+    {{- end }}
+      labels:
+        app: {{ template "name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ default "IfNotPresent" .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.internalPort }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.service.internalPort }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.service.internalPort }}
+          volumeMounts:
+            - name: config-js
+              mountPath: /usr/share/nginx/html/assets/js/settings
+            - name: config-nginx
+              mountPath: /etc/nginx/conf.d
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+      volumes:
+        - name: config-js
+          configMap:
+            name: {{ template "fullname" . }}-js
+        - name: config-nginx
+          configMap:
+            name: {{ template "fullname" . }}-nginx
+    {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}
