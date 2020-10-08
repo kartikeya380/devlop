@@ -1,5 +1,6 @@
 const { events, Job } = require("brigadier");
- events.on("push", function(e, project) {
+
+ events.on("exec", function(e, project) {
   console.log("received push for commit " + e.revision.commit)
 
   // Create a new job
